@@ -109,6 +109,8 @@ func main() {
 				return
 			}
 
+			var entries []string
+
 			for _, entry := range result.Data {
 				payload := "```"
 				payload += fmt.Sprintf("[ %s ]\n", entry.Slug)
@@ -153,9 +155,80 @@ func main() {
 					}
 				}
 				payload += "```"
-				_, err = msg.Reply(ctx, s, payload)
-				checkErr(err, "search command", log)
+				entries = append(entries, payload)
 			}
+
+			i := 0
+
+			_, err = msg.Reply(ctx, s, fmt.Sprintf("Total of results: %d\n", len(entries)))
+			checkErr(err, "search command", log)
+
+			m, err := msg.Reply(ctx, s, entries[i])
+			checkErr(err, "search command", log)
+
+			err = m.React(ctx, client, "\U00002B05")
+			checkErr(err, "search command", log)
+			err = m.React(ctx, client, "\U000027A1")
+			checkErr(err, "search command", log)
+
+			client.Gateway().WithMiddleware(
+				logFilter.LogMsg,
+			).MessageReactionAdd(func(s disgord.Session, h *disgord.MessageReactionAdd) {
+				u, err := s.CurrentUser().Get()
+				checkErr(err, "search command", log)
+				if h.UserID == u.ID {
+					return
+				}
+				if h.MessageID == m.ID {
+					if h.PartialEmoji.Name == "\U000027A1" {
+						if i == len(entries)-1 {
+							i = 0
+						} else {
+							i++
+						}
+						_, err := s.Channel(h.ChannelID).Message(h.MessageID).SetContent(entries[i])
+						checkErr(err, "search command", log)
+					} else if h.PartialEmoji.Name == "\U00002B05" {
+						if i == 0 {
+							i = len(entries) - 1
+						} else {
+							i--
+						}
+						_, err := s.Channel(h.ChannelID).Message(h.MessageID).SetContent(entries[i])
+						checkErr(err, "search command", log)
+					}
+				}
+			})
+
+			client.Gateway().WithMiddleware(
+				logFilter.LogMsg,
+			).MessageReactionRemove(func(s disgord.Session, h *disgord.MessageReactionRemove) {
+				u, err := s.CurrentUser().Get()
+				checkErr(err, "search command", log)
+				if h.UserID == u.ID {
+					return
+				}
+				if h.MessageID == m.ID {
+					if h.PartialEmoji.Name == "\U000027A1" {
+						if i == len(entries)-1 {
+							i = 0
+						} else {
+							i++
+						}
+						_, err := s.Channel(h.ChannelID).Message(h.MessageID).SetContent(entries[i])
+						checkErr(err, "search command", log)
+					} else if h.PartialEmoji.Name == "\U00002B05" {
+						if i == 0 {
+							i = len(entries) - 1
+						} else {
+							i--
+						}
+						_, err := s.Channel(h.ChannelID).Message(h.MessageID).SetContent(entries[i])
+						checkErr(err, "search command", log)
+					}
+				}
+			})
+
 		case "shutdown":
 			client.Gateway().Disconnect()
 			cancel()
@@ -175,7 +248,6 @@ func main() {
 		panic(err)
 	}
 	fmt.Println(inviteURL)
-
 	client.Gateway().StayConnectedUntilInterrupted()
 	<-ctx.Done()
 }
