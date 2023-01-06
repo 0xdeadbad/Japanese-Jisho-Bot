@@ -1,1 +1,1 @@
-# LingoWorld-Japanese-Jisho
+# Japanese Jisho Bot
